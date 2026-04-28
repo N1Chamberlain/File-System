@@ -19,7 +19,8 @@ import java.util.*;
  *   - Blocks 0–9 are always marked allocated (reserved for Free Map)
  *
  * DONE  : Disk layout, block I/O, free map (load/save/scan), format, REPL shell
- * Not Done: Rebuild file_table in startup(), then implement create, delete, ls
+ * NOW done: create <filename> command,
+ * Not Done: Rebuild file_table in startup(), then implement delete, ls
  * Not Done: Implement read, write, and full error handling
  */
 public class FileSystem {
@@ -122,6 +123,42 @@ public class FileSystem {
         }
     }
 
+    // Create <filename> command
+    static void cmdCreate(String filename, int[] freeMap, Map<String, Integer> fileTable)
+            throws IOException {
+
+        if (filename.isEmpty()) {
+            System.out.println("Error: Please provide a filename.");
+            return;
+        }
+        if (filename.length() >= FILENAME_SIZE) {
+            System.out.printf("Error: Filename too long (max %d characters).%n", FILENAME_SIZE - 1);
+            return;
+        }
+        if (fileTable.containsKey(filename)) {
+            System.out.printf("Error: File '%s' already exists.%n", filename);
+            return;
+        }
+
+        int block = firstFreeBlock(freeMap);
+        if (block == -1) {
+            System.out.println("Error: Disk is full. No free blocks available.");
+            return;
+        }
+
+        // Build a blank block with just the filename in the name field
+        byte[] blockData = new byte[BLOCK_SIZE];
+        byte[] nameBytes = filename.getBytes();
+        System.arraycopy(nameBytes, 0, blockData, 0, nameBytes.length);
+
+        writeBlock(block, blockData);
+        freeMap[block] = 1;
+        saveFreeMap(freeMap);
+        fileTable.put(filename, block);
+
+        System.out.printf("File '%s' created successfully at block %d.%n", filename, block);
+    }
+
     // Main REPL
     static final String HELP_TEXT =
             "Available commands:\n" +
@@ -160,7 +197,10 @@ public class FileSystem {
                     case "format":
                         cmdFormat(freeMap, fileTable);
                         break;
-                    case "create": case "read": case "write": case "delete": case "ls":
+                    case "create":
+                        cmdCreate(argument, freeMap, fileTable);
+                        break;
+                    case "read": case "write": case "delete": case "ls":
                         System.out.printf("'%s' is not yet implemented.%n", command);
                         break;
                     case "exit":
@@ -176,4 +216,5 @@ public class FileSystem {
         }
         scanner.close();
     }
+
 }
