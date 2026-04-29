@@ -15,8 +15,8 @@
  *   - Blocks 0-9 are always marked allocated (reserved for Free Map)
  *
  * DONE   : Disk layout, block I/O, free map (load/save/scan), format, REPL shell
- * PART 2 : Rebuild file table in startup(), then implement create, delete, ls
- * PART 3 : Implement read, write, and full error handling
+ * NOt Done : Rebuild file table in startup(), then implement create, delete, ls
+ * Not Done : Implement read, write, and full error handling
  *
  * Compile: gcc -o filesystem filesystem_part1.c
  * Run:     ./filesystem
@@ -38,7 +38,6 @@
 
 /* In-memory state */
 static int freeMap[TOTAL_BLOCKS];
-
 /* TODO (Part 2): Add file table here, e.g.:
  *   static char fileTable[TOTAL_BLOCKS][FILENAME_SIZE];
  */
@@ -65,7 +64,6 @@ void write_block(int blockNum, const char *buf) {
 }
 
 /* Free Map */
-
 void load_free_map(void) {
     FILE *f = fopen(DISK_FILE, "rb");
     if (!f) { perror("load_free_map: fopen"); exit(1); }
@@ -92,7 +90,6 @@ int first_free_block(void) {
 }
 
 /* Format Command */
-
 void cmd_format(void) {
     printf("Formatting disk...\n");
 
