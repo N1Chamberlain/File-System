@@ -38,9 +38,8 @@
 
 /* In-memory state */
 static int freeMap[TOTAL_BLOCKS];
-/* TODO (Part 2): Add file table here, e.g.:
- *   static char fileTable[TOTAL_BLOCKS][FILENAME_SIZE];
- */
+static char fileTable[TOTAL_BLOCKS][FILENAME_SIZE];
+
 
 /* Low-level Disk I/O */
 
@@ -108,6 +107,48 @@ void cmd_format(void) {
     printf("FreeMap blocks 0-%d are now allocated.\n", FREE_MAP_BLOCKS - 1);
 }
 
+
+/* LS */
+void cmd_ls(void){
+    printf("Files on disk:\n");
+    int count = 0;
+    for (int i = FILE_START_BLOCK; i < TOTAL_BLOCKS; i++){
+        if(freeMap[i]==1){
+            printf(" %s\n", fileTable[i]);
+            count++;
+        }
+    }
+    if(count==0){
+        printf(" (no files found sorry)\n");
+    }
+}
+
+/*delete*/
+void cmd_delete(char *filename){
+    for (int i = FILE_START_BLOCK; i < TOTAL_BLOCKS;i++){
+        if(freeMap[i] == 1 && strcmp(fileTable[i], filename) == 0){
+            /*clear the block*/
+            char empty[BLOCK_SIZE];
+            memset(empty, 0, BLOCK_SIZE);
+            write_block(i, empty);
+
+            /*clear file table */
+            memset(fileTable[i], 0, FILENAME_SIZE);
+
+            /*mark block as free*/
+            freeMap[i] = 0;
+            save_free_map();
+            printf("file '%s' delete.\n", filename);
+            return;
+        }
+    }
+    printf("error: file '%s' not found\n", filename);
+}
+
+
+
+
+
 /* Startup */
 
 void startup(void) {
@@ -119,8 +160,14 @@ void startup(void) {
         if (size == DISK_SIZE) {
             load_free_map();
             printf("Loading file table from disk...\n");
-            /* TODO (Part 2): Rebuild file table from allocated blocks */
-            printf("File table loaded successfully.\n");
+            for (int i = FILE_START_BLOCK; i < TOTAL_BLOCKS;i++){
+                if (freeMap[i] == 1){
+                    char buf[BLOCK_SIZE];
+                    read_block(i, buf);
+                    memcpy(fileTable[i], buf, FILENAME_SIZE);
+                }
+            }
+                printf("File table loaded successfully.\n");
             return;
         }
     }
@@ -147,7 +194,7 @@ void print_help(void) {
     printf("  --> read <filename>      [NOT YET IMPLEMENTED]\n");
     printf("  --> write <filename>     [NOT YET IMPLEMENTED]\n");
     printf("  --> delete <filename>    [NOT YET IMPLEMENTED]\n");
-    printf("  --> ls                   [NOT YET IMPLEMENTED]\n");
+    printf("  --> ls                   \n");
     printf("  --> exit\n");
 }
 
@@ -179,11 +226,21 @@ int main(void) {
 
         if (strcmp(command, "format") == 0) {
             cmd_format();
-        } else if (strcmp(command, "create") == 0 ||
+        }
+        else if(  strcmp(command, "ls")     == 0){
+            cmd_ls();
+        }
+        else if( strcmp(command, "delete") == 0){
+            if(strlen(argument) == 0 ){
+                printf("please enter name of the file you want to delete");
+            } else{
+                cmd_delete(argument);
+            }
+        }
+        else if (strcmp(command, "create") == 0 ||
                    strcmp(command, "read")   == 0 ||
-                   strcmp(command, "write")  == 0 ||
-                   strcmp(command, "delete") == 0 ||
-                   strcmp(command, "ls")     == 0) {
+                   strcmp(command, "write")  == 0
+                  ) {
             /* TODO (Part 2 & 3): implement these commands */
             printf("'%s' is not yet implemented.\n", command);
         } else if (strcmp(command, "exit") == 0) {
