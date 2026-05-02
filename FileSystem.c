@@ -14,9 +14,10 @@
  *   - 0 = free block, 1 = allocated block
  *   - Blocks 0-9 are always marked allocated (reserved for Free Map)
  *
- * DONE   : Disk layout, block I/O, free map (load/save/scan), format, REPL shell
- * NOt Done : Rebuild file table in startup(), then implement create, delete, ls
- * Not Done : Implement read, write, and full error handling
+ * Originally DONE: Disk layout, block I/O, free map (load/save/scan), format, REPL shell
+ * Currently Done : Rebuilt file table in startup(), implemented create, delete, ls
+ *
+ * Need to get done : Implement read, write, and full error handling
  *
  * Compile: gcc -o filesystem filesystem_part1.c
  * Run:     ./filesystem
@@ -42,7 +43,6 @@ static char fileTable[TOTAL_BLOCKS][FILENAME_SIZE];
 
 
 /* Low-level Disk I/O */
-
 void read_block(int blockNum, char *buf) {
     FILE *f = fopen(DISK_FILE, "rb");
     if (!f) { perror("read_block: fopen"); exit(1); }
@@ -103,6 +103,8 @@ void cmd_format(void) {
     for (int i = FREE_MAP_BLOCKS; i < TOTAL_BLOCKS; i++) freeMap[i] = 0;
     save_free_map();
 
+    memset(fileTable, 0, sizeof(fileTable));
+
     printf("Disk formatted successfully.\n");
     printf("FreeMap blocks 0-%d are now allocated.\n", FREE_MAP_BLOCKS - 1);
 }
@@ -123,6 +125,48 @@ void cmd_ls(void){
     }
 }
 
+/* Create */
+void cmd_create(char *filename) {
+    // Check if filename is empty
+    if (strlen(filename) == 0) {
+        printf("Error: Please provide a filename.\n");
+        return;
+    }
+    // Check if filename is too long
+    if (strlen(filename) >= FILENAME_SIZE) {
+        printf("Error: Filename too long (max %d characters).\n", FILENAME_SIZE - 1);
+        return;
+    }
+    // Check if file already exists
+    for (int i = FILE_START_BLOCK; i < TOTAL_BLOCKS; i++) {
+        if (freeMap[i] == 1 && strcmp(fileTable[i], filename) == 0) {
+            printf("Error: File '%s' already exists.\n", filename);
+            return;
+        }
+    }
+
+    // Find first free block
+    int block = first_free_block();
+    if (block == -1) {
+        printf("Error: Disk is full. No free blocks available.\n");
+        return;
+    }
+
+    // Build a blank block with just the filename in the name field
+    char blockData[BLOCK_SIZE];
+    memset(blockData, 0, BLOCK_SIZE);
+    strncpy(blockData, filename, FILENAME_SIZE - 1);
+
+    write_block(block, blockData);
+    freeMap[block] = 1;
+    save_free_map();
+
+    // Update in-memory file table
+    strncpy(fileTable[block], filename, FILENAME_SIZE - 1);
+
+    printf("File '%s' created successfully at block %d.\n", filename, block);
+}
+
 /*delete*/
 void cmd_delete(char *filename){
     for (int i = FILE_START_BLOCK; i < TOTAL_BLOCKS;i++){
@@ -138,7 +182,7 @@ void cmd_delete(char *filename){
             /*mark block as free*/
             freeMap[i] = 0;
             save_free_map();
-            printf("file '%s' delete.\n", filename);
+            printf("file '%s' deleted successfully.\n", filename);
             return;
         }
     }
@@ -190,11 +234,11 @@ void startup(void) {
 void print_help(void) {
     printf("Available commands:\n");
     printf("  --> format\n");
-    printf("  --> create <filename>    [NOT YET IMPLEMENTED]\n");
+    printf("  --> create <filename>\n");
     printf("  --> read <filename>      [NOT YET IMPLEMENTED]\n");
     printf("  --> write <filename>     [NOT YET IMPLEMENTED]\n");
-    printf("  --> delete <filename>    [NOT YET IMPLEMENTED]\n");
-    printf("  --> ls                   \n");
+    printf("  --> delete <filename>\n");
+    printf("  --> ls\n");
     printf("  --> exit\n");
 }
 
@@ -227,20 +271,25 @@ int main(void) {
         if (strcmp(command, "format") == 0) {
             cmd_format();
         }
-        else if(  strcmp(command, "ls")     == 0){
+        else if (strcmp(command, "ls") == 0) {
             cmd_ls();
         }
-        else if( strcmp(command, "delete") == 0){
-            if(strlen(argument) == 0 ){
+        else if (strcmp(command, "create") == 0) {
+            if (strlen(argument) == 0) {
+                printf("Error: Please provide a filename.\n");
+            } else {
+                cmd_create(argument);
+            }
+        }
+        else if (strcmp(command, "delete") == 0) {
+            if (strlen(argument) == 0 ){
                 printf("please enter name of the file you want to delete");
             } else{
                 cmd_delete(argument);
             }
         }
-        else if (strcmp(command, "create") == 0 ||
-                   strcmp(command, "read")   == 0 ||
-                   strcmp(command, "write")  == 0
-                  ) {
+        else if (strcmp(command, "read")   == 0 ||
+            strcmp(command, "write")  == 0) {
             /* TODO (Part 2 & 3): implement these commands */
             printf("'%s' is not yet implemented.\n", command);
         } else if (strcmp(command, "exit") == 0) {
